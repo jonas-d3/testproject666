@@ -22,6 +22,21 @@ async function sh(cmd: string, args: string[], cwd = repoPath) {
   });
 }
 
+async function trySh(cmd: string, args: string[], cwd = repoPath) {
+  try {
+    await execa(cmd, args, { cwd, shell: false });
+  } catch {
+    // cleanup steps may fail when nothing exists yet
+  }
+}
+
+async function prepareWorktree(branch: string, worktreePath: string) {
+  await trySh("git", ["worktree", "remove", "--force", worktreePath]);
+  await trySh("git", ["branch", "-D", branch]);
+  await fs.rm(worktreePath, { recursive: true, force: true });
+  await sh("git", ["worktree", "add", "-b", branch, worktreePath, "main"]);
+}
+
 function slugify(file: string) {
   return file
     .replace(/\.md$/, "")
@@ -38,14 +53,10 @@ async function runTask(taskFile: string) {
   await fs.mkdir(worktreesDir, { recursive: true });
 
   await sh("git", ["fetch", "origin"]);
-  //await sh("git", ["branch", "-D", branch]).catch(() => {});
-  /* await sh("git", ["worktree", "remove", "--force", worktreePath]).catch(
-    () => {},
-  ); */
 
   await sh("git", ["checkout", "main"]);
   await sh("git", ["pull", "--ff-only"]);
-  await sh("git", ["worktree", "add", "-b", branch, worktreePath, "main"]);
+  await prepareWorktree(branch, worktreePath);
 
   await fs.copyFile(taskPath, path.join(worktreePath, taskFile));
 
