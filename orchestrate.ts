@@ -3,10 +3,16 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 const repoPath = process.cwd();
-const tasksDir = path.join(repoPath, "a11y-reports/main/127.0.0.1:5173");
+const tasksDir = path.join(repoPath, "a11y-reports/plans");
 const worktreesDir = path.join(repoPath, "..", ".agent-worktrees");
 
-const tasks = ["A11Y-001.md"];
+async function loadTasks() {
+  const entries = await fs.readdir(tasksDir, { withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
+    .map((entry) => entry.name)
+    .sort();
+}
 
 async function sh(cmd: string, args: string[], cwd = repoPath) {
   return execa(cmd, args, {
@@ -32,10 +38,10 @@ async function runTask(taskFile: string) {
   await fs.mkdir(worktreesDir, { recursive: true });
 
   await sh("git", ["fetch", "origin"]);
-  await sh("git", ["branch", "-D", branch]).catch(() => {});
-  await sh("git", ["worktree", "remove", "--force", worktreePath]).catch(
+  //await sh("git", ["branch", "-D", branch]).catch(() => {});
+  /* await sh("git", ["worktree", "remove", "--force", worktreePath]).catch(
     () => {},
-  );
+  ); */
 
   await sh("git", ["checkout", "main"]);
   await sh("git", ["pull", "--ff-only"]);
@@ -90,4 +96,5 @@ Use a clear commit message.
   );
 }
 
+const tasks = await loadTasks();
 await Promise.all(tasks.map(runTask));
